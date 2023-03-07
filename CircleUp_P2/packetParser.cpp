@@ -84,7 +84,17 @@ uint8_t readPacket(Adafruit_BLE *ble, uint16_t timeout)
     if (replyidx >= 20) break;
     if ((packetbuffer[1] == 'A') && (replyidx == PACKET_ACC_LEN))
       break;
+    if ((packetbuffer[1] == 'G') && (replyidx == PACKET_GYRO_LEN))
+      break;
+    if ((packetbuffer[1] == 'M') && (replyidx == PACKET_MAG_LEN))
+      break;
+    if ((packetbuffer[1] == 'Q') && (replyidx == PACKET_QUAT_LEN))
+      break;
     if ((packetbuffer[1] == 'B') && (replyidx == PACKET_BUTTON_LEN))
+      break;
+    if ((packetbuffer[1] == 'C') && (replyidx == PACKET_COLOR_LEN))
+      break;
+    if ((packetbuffer[1] == 'L') && (replyidx == PACKET_LOCATION_LEN))
       break;
 
     while (ble->available()) {
@@ -108,8 +118,6 @@ uint8_t readPacket(Adafruit_BLE *ble, uint16_t timeout)
   if (packetbuffer[0] != '!')  // doesn't start with '!' packet beginning
     return 0;
   
-  /*
-
   // check checksum!
   uint8_t xsum = 0;
   uint8_t checksum = packetbuffer[replyidx-1];
@@ -126,8 +134,7 @@ uint8_t readPacket(Adafruit_BLE *ble, uint16_t timeout)
     printHex(packetbuffer, replyidx+1);
     return 0;
   }
-  */
-
+  
   // checksum passed!
   return replyidx;
 }

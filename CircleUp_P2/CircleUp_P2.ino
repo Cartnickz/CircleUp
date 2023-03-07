@@ -1,3 +1,8 @@
+// Zach Cartnick & Brooke Abeles
+// PHYS 336 - Electronics
+// Digital Project
+// Player 2
+
 #include <ILI9341_t3.h>
 #include <font_Arial.h> // from ILI9341_t3
 #include <XPT2046_Touchscreen.h>
@@ -10,6 +15,10 @@
 #include "Adafruit_BluefruitLE_UART.h"
 #include "BluefruitConfig.h"
 
+// Communicate with Player 1 Teensy
+#define P1_PIN 5
+
+// Touchscreen Stuff
 #define CS_PIN  8
 #define TFT_DC  9
 #define TFT_CS 10
@@ -46,16 +55,21 @@ float y_sens = 0.01;
 
 
 void setup() {
-  // put your setup code here, to run once:
+  // Setup Teensy 
   while (!Serial);  // required for Flora & Micro
   delay(50);
   Serial.begin(115200);
+  pinMode(P1_PIN, INPUT);
 
   // picking seed for random number
   randomSeed(42);
 
+  // -----------------------------------------------------------------------------------
+  // A bunch of touchscreen stuff
+
+  // initialize screen and fill black background
   tft.begin();
-  tft.setRotation(1);
+  tft.setRotation(3);
   tft.fillScreen(ILI9341_BLACK);
 
   // draw the border of the screen
@@ -64,6 +78,8 @@ void setup() {
   tft.fillRect(315, 0, 5, 240, ILI9341_WHITE);
   tft.fillRect(0, 235, 320, 5, ILI9341_WHITE);
 
+  // -----------------------------------------------------------------------------------
+  // A bunch of bluetooth stuff
   Serial.println(F("Adafruit Bluefruit App Controller Example"));
   Serial.println(F("-----------------------------------------"));
   /* Initialise the module */
@@ -72,8 +88,7 @@ void setup() {
     error(F("Couldn't find Bluefruit, make sure it's in CoMmanD mode & check wiring?"));
   }
   Serial.println( F("OK!") );
-  if ( FACTORYRESET_ENABLE )
-  {
+  if ( FACTORYRESET_ENABLE ) {
     /* Perform a factory reset to make sure everything is in a known state */
     Serial.println(F("Performing a factory reset: "));
     if ( ! ble.factoryReset() ) {
@@ -117,13 +132,14 @@ void setup() {
     ble.sendCommandCheckOK("AT+HWModeLED=" MODE_LED_BEHAVIOUR);
   }
 
-ble.sendCommandCheckOK("AT+GAPDEVNAME=CircleUp_P2");
+  ble.sendCommandCheckOK("AT+GAPDEVNAME=CircleUp_P2");
   // Set Bluefruit to DATA mode
   Serial.println( F("Switching to DATA mode!") );
   ble.setMode(BLUEFRUIT_MODE_DATA);
 
   Serial.println(F("******************************"));
 }
+// -----------------------------------------------------------------------------------
 
 /*!
     @brief  Constantly poll for new command or response data
@@ -143,46 +159,34 @@ void loop(void) {
     tft.setCursor(80, 150);
     tft.setTextSize(1);
     tft.setTextColor(ILI9341_WHITE);
-    tft.print("Press any button to start!");
+    tft.print("Waiting for player 1......");
 
-    for (int color = 0; color < 256; color += 10) {
+    for (int color = 0; color < 256; color += 20) {
       tft.setCursor(30, 100);
       tft.setTextSize(5);
       tft.setTextColor(tft.color565(0, color, 255-color));
-      tft.print("TiltBall!");
+      tft.print("CircleUp!");
       
-      // check for button press
-      if (color % 10 == 0) {
-        uint8_t len = readPacket(&ble, 500);
-        if (len == 0) {
-          return;
-        } else if (packetbuffer[1] == 'B') {
-          printHex(packetbuffer, len);
-          tft.fillRect(15, 80, 300, 80, ILI9341_BLACK);
-          state = 2;
-          break;
-        }
+      // look for player 1 to press start
+      if (state == 1 && digitalRead(P1_PIN)) {
+        state = 2;
+        break;
       }
+
 
     }
     if (state == 1) {
-      for (int color = 0; color < 256; color += 1) {
+      for (int color = 0; color < 256; color += 20) {
         tft.setCursor(30, 100);
         tft.setTextSize(5);
         tft.setTextColor(tft.color565(0, 255-color, color));
-        tft.print("TiltBall!");
+        tft.print("CircleUp!");
 
-        //check for button press
-        if (color % 10 == 0) {
-          uint8_t len = readPacket(&ble, 500);
-          if (len == 0) {
-            return;
-          } else if (packetbuffer[1] == 'B') {
-            printHex(packetbuffer, len);
-            state = 2;
-            break;
-          }
-        }
+        // look for player 1 to press start
+        if (state == 1 && digitalRead(P1_PIN)) {
+        state = 2;
+        break;
+      }
       }
     }
 
@@ -268,7 +272,6 @@ void loop(void) {
         y_pos += y;
       }
 
-
         // draw player position
       tft.fillRect(x_pos, y_pos, 3, 3, ILI9341_YELLOW);
       if ( ((x_pos > x_goal - 3) && (x_pos < x_goal + 5)) && ( (y_pos > y_goal - 3) && (y_pos < y_goal + 5)) ) {
@@ -277,42 +280,5 @@ void loop(void) {
       }
     }
     }
-    
-    // 
   }
-
-
-    // Accelerometer
-  
-    if (packetbuffer[1] == 'A') {
-    float x, y, z;
-    x = parsefloat(packetbuffer+2);  // 0
-    y = parsefloat(packetbuffer+6);
-    z = parsefloat(packetbuffer+10); // 1 >= z >= 0 phone flat down; 0 >= z >= -1 flat phone up
-    Serial.print("Accel\t");
-    Serial.print(x); Serial.print('\t');
-    Serial.print(y); Serial.print('\t');
-    Serial.print(z); Serial.println();
-    }
-
-    if (packetbuffer[1] == 'B') {
-    uint8_t buttnum = packetbuffer[2] - '0';
-    boolean pressed = packetbuffer[3] - '0';
-    Serial.print ("Button "); Serial.print(buttnum);
-    // Buttons are numbered: 1-4 in the pad and for arrows 5=up, 6=down, 7=left, 8=right
-    if (pressed) {
-      Serial.println(" pressed");
-      if (buttnum == 1)  digitalWrite(5, HIGH);
-      if (buttnum == 2) digitalWrite(6, HIGH);
-      if (buttnum == 3) digitalWrite(7, HIGH);
-     if (buttnum == 4) digitalWrite(8, HIGH);
-    } else {
-      Serial.println(" released");
-      if (buttnum == 1)  digitalWrite(5, LOW);
-      if (buttnum == 2) digitalWrite(6, LOW);
-      if (buttnum == 3) digitalWrite(7, LOW);
-      if (buttnum == 4) digitalWrite(8, LOW);
-    }
-    }
-
 }

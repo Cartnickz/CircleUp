@@ -5,7 +5,6 @@
 
 #include <ILI9341_t3.h>
 #include <font_Arial.h> // from ILI9341_t3
-#include <XPT2046_Touchscreen.h>
 #include <SPI.h>
 
 #include <string.h>
@@ -20,10 +19,10 @@
 #define TFT_CS 10
 
 // Teensy Pin
-#define P1_IN 3  // sends signal to other teensy about end of the game (goes into PIN 16 on P2)
-#define P1_OUT 4  // looks for signal about game end (goes into PIN 15 on P2)
-#define START_IN 5  // looks for 3 game counter (goes into )
-#define START_OUT 6 // if reached three games, reset counter
+#define P1_IN 2  // sends signal to other teensy about end of the game (goes into PIN 16 on P2)
+#define P1_OUT 3  // looks for signal about game end (goes into PIN 15 on P2)
+#define START_IN 4  // looks for 3 game counter (goes into )
+#define START_OUT 5 // if reached three games, reset counter
 #define RESET_IN 8 // start game, output on player one, input on player 2
 #define WIN_PIN 7  // adds to counter
 
@@ -58,7 +57,7 @@ float x_vel, y_vel;
 float x, y;
 float x_sens = 6;
 float y_sens = 6;
-float goal_sens = 0; // 0.35;
+float goal_sens = 0.35;
 
 
 void setup(void) {
@@ -170,6 +169,7 @@ void loop(void) {
   printHex(packetbuffer, len);
   tft.fillRect(75, 100, 200, 50, ILI9341_BLACK);
 
+  //-----------------------------------------------------------------------------------
   // starting screen
   while(state == 1) {
     tft.setCursor(80, 150);
@@ -191,11 +191,13 @@ void loop(void) {
             printHex(packetbuffer, len);
             state = 2;
 
+            Serial.println("Setting START_OUT to HIGH");
             digitalWrite(START_OUT, HIGH);
             Serial.println("Starting Game, waiting for Player 2 to respond.");
             while(true) {
               Serial.println(digitalRead(START_IN));
               if (digitalRead(START_IN)) {
+                Serial.println("Setting START_OUT to LOW");
                 digitalWrite(START_OUT, LOW);
                 Serial.println("Player 2 ready.");
                 break;
@@ -205,6 +207,7 @@ void loop(void) {
             break;
           }
         }
+    }
     
     if (state == 1) {
       for (int color = 0; color < 256; color += 15) {
@@ -221,10 +224,12 @@ void loop(void) {
             printHex(packetbuffer, len);
             state = 2;
 
+            Serial.println("Setting START_OUT to HIGH");
             digitalWrite(START_OUT, HIGH);
             Serial.println("Starting Game, waiting for Player 2 to respond.");
             while(true) {
               if (digitalRead(START_IN)) {
+                Serial.println("Setting START_OUT to HIGH");
                 digitalWrite(START_OUT, LOW);
                 Serial.println("Player 2 ready.");
                 break;
@@ -236,7 +241,6 @@ void loop(void) {
         }
 
       }
-    }
     }
     }
 

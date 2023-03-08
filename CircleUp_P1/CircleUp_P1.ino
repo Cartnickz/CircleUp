@@ -15,10 +15,17 @@
 #include "Adafruit_BluefruitLE_UART.h"
 #include "BluefruitConfig.h"
 
-// Touchscreen Stuff
-#define CS_PIN  8
+// Screen Stuff
 #define TFT_DC  9
 #define TFT_CS 10
+
+// Teensy Pin
+#define P1_IN 3  // sends signal to other teensy about end of the game (goes into PIN 16 on P2)
+#define P1_OUT 4  // looks for signal about game end (goes into PIN 15 on P2)
+#define START_IN 5  // looks for 3 game counter (goes into )
+#define START_OUT 6 // if reached three games, reset counter
+#define RESET_IN 8 // start game, output on player one, input on player 2
+#define WIN_PIN 7  // adds to counter
 
 // Bluetooth Stuff
 #define FACTORYRESET_ENABLE         0
@@ -43,7 +50,6 @@ extern uint8_t packetbuffer[];
 
 // Rectangle is 320 x 240 (x and y)
 ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC);
-XPT2046_Touchscreen ts(CS_PIN);
 
 // initialize program variables
 float x_pos, y_pos;
@@ -52,7 +58,7 @@ float x_vel, y_vel;
 float x, y;
 float x_sens = 6;
 float y_sens = 6;
-float goal_sens = 0.35;
+float goal_sens = 0; // 0.35;
 
 
 void setup(void) {
@@ -60,6 +66,16 @@ void setup(void) {
   while (!Serial);  // required for Flora & Micro
   delay(50);
   Serial.begin(115200);
+
+  pinMode(P1_IN, INPUT);
+  pinMode(P1_OUT, OUTPUT);
+  pinMode(START_IN, INPUT);
+  pinMode(START_OUT, OUTPUT);
+  pinMode(WIN_PIN, OUTPUT);
+  pinMode(RESET_IN, INPUT);
+
+  digitalWrite(P1_OUT, LOW);
+  digitalWrite(START_OUT, LOW);
 
   // picking seed for random number
   // randomSeed(42);
@@ -168,14 +184,27 @@ void loop(void) {
       tft.print("CircleUp!");
       
       // check for button press
-      if (color % 10 == 0) {
-        readPacket(&ble, 100);
-        } else if (packetbuffer[1] == 'B') {
-          tft.fillRect(15, 80, 300, 80, ILI9341_BLACK);
-          state = 2;
-          break;
+        if (color % 10 == 0) {
+          readPacket(&ble, 100);
+         
+          if (packetbuffer[1] == 'B') {
+            printHex(packetbuffer, len);
+            state = 2;
+
+            digitalWrite(START_OUT, HIGH);
+            Serial.println("Starting Game, waiting for Player 2 to respond.");
+            while(true) {
+              Serial.println(digitalRead(START_IN));
+              if (digitalRead(START_IN)) {
+                digitalWrite(START_OUT, LOW);
+                Serial.println("Player 2 ready.");
+                break;
+              }
+            }
+
+            break;
+          }
         }
-      }
     
     if (state == 1) {
       for (int color = 0; color < 256; color += 15) {
@@ -186,16 +215,29 @@ void loop(void) {
 
         // check for button press
         if (color % 10 == 0) {
-        readPacket(&ble, 100);
-        } else if (packetbuffer[1] == 'B') {
-          printHex(packetbuffer, len);
-          tft.fillRect(15, 80, 300, 80, ILI9341_BLACK);
-          state = 2;
-          break;
+          readPacket(&ble, 100);
+         
+          if (packetbuffer[1] == 'B') {
+            printHex(packetbuffer, len);
+            state = 2;
+
+            digitalWrite(START_OUT, HIGH);
+            Serial.println("Starting Game, waiting for Player 2 to respond.");
+            while(true) {
+              if (digitalRead(START_IN)) {
+                digitalWrite(START_OUT, LOW);
+                Serial.println("Player 2 ready.");
+                break;
+              }
+            }
+
+            break;
+          }
         }
+
       }
     }
-
+    }
     }
 
   while (state == 2) {
@@ -212,9 +254,13 @@ void loop(void) {
         tft.setTextSize(5);
         tft.setTextColor(tft.color565(color, color, color));
         tft.print("Ready?");
+        tft.fillRect(0, 0, 320 * (255-color) / 255, 5, ILI9341_WHITE);
+        tft.fillRect(0, 0, 5, 240  * (255-color) / 255, ILI9341_WHITE);
+        tft.fillRect(315, 0, 5, 240  * (255-color) / 255, ILI9341_WHITE);
+        tft.fillRect(0, 235, 320  * (255-color) / 255, 5, ILI9341_WHITE);
       }
-      delay(100);
-
+    
+    delay(100);
     // Set..
     tft.setCursor(80, 100);
     tft.setTextSize(5);
@@ -263,6 +309,7 @@ void loop(void) {
   x_pos = 158;
   y_pos = 118;
   int target = 0;
+  int ticks = 0;
 
   while (state == 3) {
     // player pixel movement
@@ -271,7 +318,8 @@ void loop(void) {
     if (packetbuffer[1] == 'A') {
       y_vel = -y_sens * parsefloat(packetbuffer+2);
       x_vel = -x_sens * parsefloat(packetbuffer+6);
-    }
+    } else if (packetbuffer[1] == 'B');
+
   
     x_goal_vel[0] += goal_sens * random(-5, 6); y_goal_vel[0] += goal_sens * random(-5, 6);
     x_goal_vel[1] += goal_sens * random(-6, 7); y_goal_vel[1] += goal_sens * random(-6, 7);
@@ -321,12 +369,41 @@ void loop(void) {
             tft.fillRect(315, 0, 5, 240, tft.color565(red_val[target], green_val[target], blue_val[target]));
             tft.fillRect(0, 235, 320, 5, tft.color565(red_val[target], green_val[target], blue_val[target]));
         red_val[target] = 0; green_val[target] = 0; blue_val[target] = 0;
+        digitalWrite(WIN_PIN, HIGH);
+        delay(50);
+        digitalWrite(WIN_PIN, LOW);
         target++;
-
-        if (target == 6){
+        
+        // this player wins
+        if (target == 6 && !digitalRead(P1_IN)){
           state = 1;
+
+          // send signal to other player
+          digitalWrite(P1_OUT, HIGH);
+          
+          // wait for other player to respond
+          while (true) {
+            // check to see if other player responded
+            if (digitalRead(P1_IN)) {
+              digitalWrite(P1_OUT, LOW);
+              break;
+            }
+          }
           break;
+        } 
+        // this player loses
+        else if (digitalRead(P1_IN)) {
+          digitalWrite(P1_OUT, HIGH);
+          while (true) {
+            // look to see if other player turns off pin
+            if (!digitalRead(P1_IN)) {
+              digitalWrite(P1_OUT, LOW);
+              break;
+            }
+          }
         }
       }
+      ticks++;
       }
-    }
+  }
+  

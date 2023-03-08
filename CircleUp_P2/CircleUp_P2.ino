@@ -5,7 +5,6 @@
 
 #include <ILI9341_t3.h>
 #include <font_Arial.h> // from ILI9341_t3
-#include <XPT2046_Touchscreen.h>
 #include <SPI.h>
 
 #include <string.h>
@@ -191,7 +190,9 @@ void loop(void) {
           state = 2;
           break;
         }
-    
+      delay(50);
+    }
+
     if (state == 1) {
       for (int color = 0; color < 256; color += 15) {
         tft.setCursor(30, 100);
@@ -207,10 +208,10 @@ void loop(void) {
           state = 2;
           break;
         }
-
+      delay(50);
       }
     }
-    }
+
     }
 
   while (state == 2) {

@@ -57,7 +57,7 @@ float x_vel, y_vel;
 float x, y;
 float x_sens = 6;
 float y_sens = 6;
-float goal_sens = 0.35;
+float goal_sens =  0; // 0.35;
 
 
 void setup(void) {
@@ -75,6 +75,7 @@ void setup(void) {
 
   digitalWrite(P1_OUT, LOW);
   digitalWrite(START_OUT, LOW);
+  digitalWrite(WIN_PIN, LOW);
 
   // picking seed for random number
   // randomSeed(42);
@@ -163,10 +164,6 @@ void setup(void) {
 void loop(void) {
 
   int state = 1;
-  uint8_t len = readPacket(&ble, 200);
-  if (len == 0) return;
-
-  printHex(packetbuffer, len);
   tft.fillRect(75, 100, 200, 50, ILI9341_BLACK);
 
   //-----------------------------------------------------------------------------------
@@ -188,7 +185,6 @@ void loop(void) {
           readPacket(&ble, 100);
          
           if (packetbuffer[1] == 'B') {
-            printHex(packetbuffer, len);
             state = 2;
 
             Serial.println("Setting START_OUT to HIGH");
@@ -221,7 +217,7 @@ void loop(void) {
           readPacket(&ble, 100);
          
           if (packetbuffer[1] == 'B') {
-            printHex(packetbuffer, len);
+            
             state = 2;
 
             Serial.println("Setting START_OUT to HIGH");
@@ -373,30 +369,37 @@ void loop(void) {
             tft.fillRect(315, 0, 5, 240, tft.color565(red_val[target], green_val[target], blue_val[target]));
             tft.fillRect(0, 235, 320, 5, tft.color565(red_val[target], green_val[target], blue_val[target]));
         red_val[target] = 0; green_val[target] = 0; blue_val[target] = 0;
-        digitalWrite(WIN_PIN, HIGH);
-        delay(50);
-        digitalWrite(WIN_PIN, LOW);
         target++;
         
         // this player wins
-        if (target == 6 && !digitalRead(P1_IN)){
+        if (target == 6){
+          Serial.println("Got 6 targets, setting win pin to high.");
+          digitalWrite(WIN_PIN, HIGH);
+          delay(150);
+          digitalWrite(WIN_PIN, LOW);
+          Serial.println("win pin is low, set state to 1");
           state = 1;
 
           // send signal to other player
+          Serial.println("Sending high signal through P1");
           digitalWrite(P1_OUT, HIGH);
           
           // wait for other player to respond
           while (true) {
+            Serial.println("Looking for player 2 to respond");
             // check to see if other player responded
             if (digitalRead(P1_IN)) {
+              Serial.println("Got Response.");
               digitalWrite(P1_OUT, LOW);
               break;
             }
           }
           break;
-        } 
+        }
+      }
         // this player loses
-        else if (digitalRead(P1_IN)) {
+       if (digitalRead(P1_IN)) {
+        state = 1;
           digitalWrite(P1_OUT, HIGH);
           while (true) {
             // look to see if other player turns off pin
@@ -406,8 +409,7 @@ void loop(void) {
             }
           }
         }
-      }
-      ticks++;
+       ticks++;
       }
   }
   

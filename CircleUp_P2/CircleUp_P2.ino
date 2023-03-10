@@ -77,7 +77,8 @@ void setup(void) {
 
   digitalWrite(P2_OUT, LOW);
   digitalWrite(START_OUT, LOW);
-
+  digitalWrite(WIN_PIN, LOW);
+  
   // picking seed for random number
   // randomSeed(42);
 
@@ -365,6 +366,9 @@ void loop() {
 
       // this player wins
       if (target == 6) {
+        digitalWrite(WIN_PIN, HIGH);
+        delay(150);
+        digitalWrite(WIN_PIN, LOW);
         state = 1;
 
         // send signal to other player

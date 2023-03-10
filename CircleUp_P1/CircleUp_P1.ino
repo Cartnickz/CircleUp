@@ -57,10 +57,10 @@ float x_vel, y_vel;
 float x, y;
 float x_sens = 6;
 float y_sens = 6;
-float goal_sens =  0; // 0.35;
+float goal_sens =  0.35;
 
 
-void setup(void) {
+void setup(void) {   
   // put your setup code here, to run once:
   while (!Serial);  // required for Flora & Micro
   delay(50);
@@ -173,7 +173,6 @@ void loop(void) {
     tft.setTextSize(1);
     tft.setTextColor(ILI9341_WHITE);
     tft.print("Press any button to start!");
-
     for (int color = 0; color < 256; color += 15) {
       tft.setCursor(30, 100);
       tft.setTextSize(5);
